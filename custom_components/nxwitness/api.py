@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import re
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -108,6 +109,7 @@ class NxWitnessApiClient:
         self._config = config
         self._token: str | None = None
         self._token_expires_at: datetime | None = None
+        self._token_lock = asyncio.Lock()
 
     @property
     def base_url(self) -> str:
@@ -410,37 +412,53 @@ class NxWitnessApiClient:
             return media_url.replace("://", f"://{prefix}", 1)
         return media_url
 
-    def _invalidate_token(self) -> None:
-        self._token = None
-        self._token_expires_at = None
+    async def _ensure_session_token(self, *, rejected_token: str | None = None) -> None:
+        """Ensure a valid session token, serialised across concurrent requests.
 
-    async def _ensure_session_token(self) -> None:
+        Without ``rejected_token`` this is a normal "log in if missing or
+        locally expired" call. With it, it is the recovery path after a 401:
+        only re-mint when the current token is still the one that was
+        rejected — if another concurrent request already refreshed it, reuse
+        that. The lock + double-check stops N concurrent requests (e.g. one
+        per dashboard card) all firing logins and exhausting NX's per-user
+        session cap.
+        """
         if self._config.auth_mode != AUTH_MODE_SESSION:
             return
 
-        now = datetime.now(UTC)
-        if self._token and self._token_expires_at and self._token_expires_at > now:
-            return
+        async with self._token_lock:
+            now = datetime.now(UTC)
+            if rejected_token is not None:
+                if self._token != rejected_token:
+                    return
+            elif self._token and self._token_expires_at and (
+                self._token_expires_at > now
+            ):
+                return
 
-        try:
-            async with self._session.post(
-                f"{self.base_url}/rest/v3/login/sessions",
-                json={
-                    "username": self._config.username,
-                    "password": self._config.password,
-                },
-                ssl=self._config.verify_ssl,
-            ) as response:
-                response.raise_for_status()
-                payload = await response.json()
-        except ClientResponseError as err:
-            _raise_api_error(err)
-        except (TimeoutError, ClientError) as err:
-            raise NxWitnessApiError(str(err) or err.__class__.__name__) from err
+            try:
+                async with self._session.post(
+                    f"{self.base_url}/rest/v3/login/sessions",
+                    json={
+                        "username": self._config.username,
+                        "password": self._config.password,
+                    },
+                    ssl=self._config.verify_ssl,
+                ) as response:
+                    response.raise_for_status()
+                    payload = await response.json()
+            except ClientResponseError as err:
+                _raise_api_error(err)
+            except (TimeoutError, ClientError) as err:
+                raise NxWitnessApiError(
+                    str(err) or err.__class__.__name__
+                ) from err
 
-        self._token = payload.get("token")
-        expires_in = payload.get("expiresInS", 300)
-        self._token_expires_at = now + timedelta(seconds=max(int(expires_in) - 30, 30))
+            self._token = payload.get("token")
+            expires_in = payload.get("expiresInS", 300)
+            self._token_expires_at = now + timedelta(
+                seconds=max(int(expires_in) - 30, 30)
+            )
 
     async def _request_json(
         self, method: str, path: str, *, params: dict[str, Any] | None = None
@@ -471,6 +489,7 @@ class NxWitnessApiClient:
         _retry_auth: bool = True,
     ):
         headers = await self._build_headers(accept=accept)
+        used_token = self._token
         try:
             response = await self._session.request(
                 method,
@@ -494,8 +513,8 @@ class NxWitnessApiClient:
             ):
                 # Cached session token was rejected before our local expiry
                 # estimate (NX restart, session eviction, or clock skew).
-                # Drop it and retry once with a freshly minted token.
-                self._invalidate_token()
+                # Re-mint once (unless another request already did) and retry.
+                await self._ensure_session_token(rejected_token=used_token)
                 return await self._request(
                     method,
                     path,

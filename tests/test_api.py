@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 
 import pytest
@@ -265,6 +266,33 @@ async def test_session_login_errors() -> None:
     )
     with pytest.raises(NxWitnessApiError):
         await client.async_get_devices()
+
+
+async def test_concurrent_requests_single_login() -> None:
+    """Many concurrent requests negotiate the session token only once.
+
+    Regression: without the lock, N in-flight requests (e.g. one per
+    dashboard card) each fired a login and exhausted NX's session cap.
+    """
+
+    class CountingLoginSession(FakeSession):
+        def __init__(self) -> None:
+            super().__init__([])
+            self.logins = 0
+
+        def post(self, url: str, **kwargs: Any) -> FakeResponse:
+            self.logins += 1
+            return FakeResponse(200, {"token": "tok", "expiresInS": 600})
+
+        async def request(self, method: str, url: str, **kwargs: Any):
+            return FakeResponse(200, list(DEVICES))
+
+    session = CountingLoginSession()
+    client = NxWitnessApiClient(session, _config("session"))
+
+    await asyncio.gather(*(client.async_get_devices() for _ in range(8)))
+
+    assert session.logins == 1
 
 
 async def test_session_token_reminted_on_rejection() -> None:
