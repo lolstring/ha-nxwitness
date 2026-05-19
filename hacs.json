@@ -1,9 +1,4 @@
 {
   "name": "NX Witness",
-  "domains": [
-    "nxwitness"
-  ],
-  "content_in_root": false,
-  "render_readme": true,
-  "homeassistant": "2026.1.0"
+  "homeassistant": "2026.3.0"
 }

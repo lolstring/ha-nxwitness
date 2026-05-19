@@ -1,7 +1,7 @@
 # NX Witness for Home Assistant
 
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/hacs/integration)
-[![HA Version](https://img.shields.io/badge/Home%20Assistant-2025.1%2B-blue.svg)](https://www.home-assistant.io/)
+[![HA Version](https://img.shields.io/badge/Home%20Assistant-2026.3%2B-blue.svg)](https://www.home-assistant.io/)
 [![Quality Scale](https://img.shields.io/badge/Quality%20Scale-Bronze-cd7f32.svg)](https://developers.home-assistant.io/docs/integration_quality_scale_index/)
 
 A read-only Home Assistant integration for [NX Witness](https://www.networkoptix.com/nx-witness) and compatible VMS systems like Nx Meta. It adds your cameras as Home Assistant entities, motion binary sensors, a recorded clip browser, and an optional Lovelace card with a timeline you can drag.
@@ -23,7 +23,7 @@ Read-only means the integration only ever reads from the server. It never change
 
 ## Requirements
 
-- Home Assistant 2025.1 or newer
+- Home Assistant 2026.3 or newer
 - An NX Witness server that Home Assistant can reach
 - An NX Witness account (a read-only account is recommended)
 
