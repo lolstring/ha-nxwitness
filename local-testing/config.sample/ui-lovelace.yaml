@@ -1,0 +1,14 @@
+# Minimal YAML-mode dashboard. Add NX Witness cards here once the integration
+# is configured (Settings -> Devices & Services -> Add Integration).
+title: NX Witness Local Test
+views:
+  - title: Overview
+    path: overview
+    cards:
+      - type: markdown
+        content: >
+          ## NX Witness local test
+
+          Add the **NX Witness** integration from Settings -> Devices &
+          Services, then replace this card with picture-glance / the custom
+          `nxwitness-camera-card`.

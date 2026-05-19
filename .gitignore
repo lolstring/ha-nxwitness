@@ -1,0 +1,90 @@
+# Project-local generated content (README screenshots are tracked)
+docs/*
+!docs/screenshots/
+# Runtime Home Assistant state only; the e2e/dev compose, sample config and
+# docs under local-testing/ are tracked.
+local-testing/config/
+
+# Agent-local working directory
+.claude/
+
+# Generic OS/editor noise
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.tmp
+*.temp
+*.swp
+*.swo
+*.bak
+*.orig
+.vscode/*
+!.vscode/settings.json
+!.vscode/launch.json
+!.vscode/tasks.json
+.idea/
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Environment and local overrides
+.env
+.env.*
+!.env.example
+!.env.template
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyd
+*.pyo
+*.so
+.python-version
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.pyre/
+.hypothesis/
+.tox/
+.nox/
+.coverage
+.coverage.*
+htmlcov/
+build/
+dist/
+site/
+.eggs/
+*.egg
+*.egg-info/
+pip-wheel-metadata/
+.venv/
+venv/
+env/
+ENV/
+
+# Node.js
+node_modules/
+.npm/
+.pnpm-store/
+.yarn/
+.parcel-cache/
+.next/
+.nuxt/
+.svelte-kit/
+coverage/
+vite.svg
+*.tsbuildinfo
+
+
+# NX Witness e2e (local only) - never commit sample media/state
+local-testing/e2e/.nx_e2e_state.json
+local-testing/e2e/media/*
+!local-testing/e2e/media/.gitkeep
+
+# scripts/develop generated Home Assistant config
+/config/

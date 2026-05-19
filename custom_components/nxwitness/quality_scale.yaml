@@ -1,0 +1,104 @@
+rules:
+  # Bronze
+  action-setup:
+    status: done
+    comment: Read-only services are registered in async_setup.
+  appropriate-polling:
+    status: done
+    comment: DataUpdateCoordinator polls every 30s by default (configurable 5-300s).
+  brands:
+    status: done
+    comment: Local brand/ directory with an mdi: icon fallback (HA 2026.3+).
+  common-modules: done
+  config-flow-test-coverage: done
+  config-flow:
+    status: done
+    comment: User step with data_description; options flow for runtime tuning.
+  dependency-transparency:
+    status: done
+    comment: No third-party requirements; uses Home Assistant's aiohttp client.
+  docs-actions: done
+  docs-high-level-description: done
+  docs-installation-instructions: done
+  docs-removal-instructions: done
+  entity-event-setup: done
+  entity-unique-id: done
+  has-entity-name: done
+  runtime-data: done
+  test-before-configure: done
+  test-before-setup:
+    status: done
+    comment: Coordinator first refresh raises ConfigEntryNotReady on failure.
+  unique-config-entry:
+    status: done
+    comment: Aborts on duplicate host:port via unique_id.
+
+  # Silver
+  action-exceptions:
+    status: done
+    comment: Services raise ServiceValidationError for invalid input.
+  config-entry-unloading: done
+  docs-configuration-parameters: done
+  docs-installation-parameters: done
+  entity-unavailable:
+    status: done
+    comment: Camera reports unavailable when the device is missing.
+  integration-owner: done
+  log-when-unavailable:
+    status: todo
+  parallel-updates:
+    status: todo
+  reauthentication-flow:
+    status: todo
+  test-coverage:
+    status: done
+    comment: Suite enforces >=95% coverage.
+
+  # Gold
+  devices:
+    status: todo
+  diagnostics:
+    status: todo
+  discovery-update-info:
+    status: exempt
+    comment: NX Witness servers are configured by address; no discovery.
+  discovery:
+    status: exempt
+    comment: No supported discovery protocol for NX Witness servers.
+  docs-data-update: todo
+  docs-examples: todo
+  docs-known-limitations: todo
+  docs-supported-devices: todo
+  docs-supported-functions: todo
+  docs-troubleshooting: todo
+  docs-use-cases: todo
+  dynamic-devices:
+    status: todo
+  entity-category:
+    status: todo
+  entity-device-class: done
+  entity-disabled-by-default:
+    status: todo
+  entity-translations:
+    status: todo
+  exception-translations:
+    status: todo
+  icon-translations:
+    status: todo
+  reconfiguration-flow:
+    status: todo
+  repair-issues:
+    status: exempt
+    comment: No user-actionable repair scenarios yet.
+  stale-devices:
+    status: todo
+
+  # Platinum
+  async-dependency:
+    status: exempt
+    comment: No external dependency; API client is built on aiohttp.
+  inject-websession:
+    status: done
+    comment: Uses async_get_clientsession from Home Assistant.
+  strict-typing:
+    status: todo

@@ -1,0 +1,66 @@
+# End-to-end stack: real NX Witness (Meta VMS) server with the Testcamera
+# emulator running INSIDE the same container (+ optional HA).
+#
+# Not part of the default dev stack. Brought up only by scripts/e2e.*.
+# Defaults to the prebuilt Network Optix Meta VMS server image (pinned by
+# digest); it bundles the `testcamera` binary and `curl`. Override with
+# NX_IMAGE if you use a different build. Provide a sample clip locally at
+# ./media/sample.mkv (git-ignored) - see README.md.
+
+name: nxwitness-e2e
+
+services:
+  nxserver:
+    image: ${NX_IMAGE:-harbor.nxvms.dev/nxvms/metavms-server@sha256:c6d9d6ef9b483f00b73e78ab899e50dbb1638bf586f7fc60ebfa081f8846917c}
+    container_name: nxwitness-e2e-server
+    # Fixed MAC + named volumes keep the license HWID stable across runs.
+    mac_address: "02:42:ac:1f:00:02"
+    ports:
+      - "${NX_E2E_PORT:-7001}:7001"
+    volumes:
+      - nx-etc:/opt/networkoptix-metavms/mediaserver/etc
+      - nx-var:/opt/networkoptix-metavms/mediaserver/var
+      - ./media:/nx/media:ro
+    # Single-container mode: background the bundled Testcamera, then hand off
+    # to the image's real entrypoint (which launches the mediaserver). The
+    # emulator shares the server's network namespace, so NX auto-discovery
+    # (L2 broadcast) finds it. Trade-off: the emulator is unsupervised - if it
+    # crashes there is no restart (acceptable for a disposable test rig).
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - >
+        /opt/networkoptix-metavms/mediaserver/bin/testcamera
+        "${NX_TESTCAMERA_ARGS:-files=/nx/media/sample.mkv;count=1}"
+        --fps=${NX_TESTCAMERA_FPS:-15} &
+        exec /opt/mediaserver/entrypoint.sh
+    healthcheck:
+      # No -f: a 401 from an unconfigured server still means "HTTP is up".
+      # curl exits non-zero only when the port is not yet serving.
+      test: ["CMD-SHELL", "curl -s --max-time 3 -o /dev/null http://localhost:7001/api/moduleInformation"]
+      interval: 5s
+      timeout: 5s
+      retries: 60
+      start_period: 20s
+    restart: "no"
+
+  # Optional full-stack HA for manual exploration: docker compose --profile ha up
+  homeassistant:
+    image: ghcr.io/home-assistant/home-assistant:${HA_VERSION:-stable}
+    container_name: nxwitness-e2e-ha
+    profiles: ["ha"]
+    depends_on:
+      nxserver:
+        condition: service_healthy
+    ports:
+      - "8123:8123"
+    environment:
+      TZ: UTC
+    volumes:
+      - ../../local-testing/config:/config
+      - ../../custom_components/nxwitness:/config/custom_components/nxwitness:ro
+      - ../../www/nxwitness-camera-card:/config/www/nxwitness-camera-card:ro
+    restart: unless-stopped
+
+volumes:
+  nx-etc:
+  nx-var:

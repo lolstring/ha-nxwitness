@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# Run the unit suite with coverage (default args from pyproject). Extra args
+# are passed through, e.g.  scripts/test tests/test_api.py -k footage
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+python3 -m pytest "$@"

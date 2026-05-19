@@ -1,0 +1,36 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Home Assistant (develop)",
+      "type": "debugpy",
+      "request": "attach",
+      "connect": {
+        "host": "localhost",
+        "port": 5678
+      },
+      "justMyCode": false,
+      "preLaunchTask": "Develop: Home Assistant (source)"
+    },
+    {
+      // Docker-compose path: official HA image with the component bind-mounted.
+      "name": "Python: Attach to Home Assistant (docker)",
+      "type": "debugpy",
+      "request": "attach",
+      "connect": {
+        "host": "homeassistant",
+        "port": 5678
+      },
+      "pathMappings": [
+        {
+          "localRoot": "${workspaceFolder}/custom_components/nxwitness",
+          "remoteRoot": "/config/custom_components/nxwitness"
+        }
+      ],
+      "justMyCode": true,
+      "preLaunchTask": "Home Assistant",
+      // Makes the debugger's restart button restart Home Assistant
+      "postDebugTask": "Restart Home Assistant"
+    }
+  ]
+}

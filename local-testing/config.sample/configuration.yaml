@@ -1,0 +1,31 @@
+# Reproducible Home Assistant config for the docker-compose dev flow.
+# Copy this directory to ./config before `docker compose up` (the live
+# ./config holds runtime state and is git-ignored):
+#
+#   PowerShell:  Copy-Item -Recurse config.sample config
+#   bash:        cp -r config.sample config
+#
+# scripts/develop generates an equivalent config automatically for the
+# hass-from-source flow.
+
+default_config:
+
+homeassistant:
+  name: NX Witness Local Test
+  unit_system: metric
+  time_zone: UTC
+
+logger:
+  default: info
+  logs:
+    custom_components.nxwitness: debug
+
+# Remote debugging: the VS Code "Python: Attach to Home Assistant" config
+# connects to this listener (port 5678 on the homeassistant container).
+debugpy:
+
+lovelace:
+  mode: yaml
+  resources:
+    - url: /local/nxwitness-camera-card/nxwitness-camera-card.js
+      type: module

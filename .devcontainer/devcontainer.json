@@ -1,0 +1,50 @@
+{
+  "dockerComposeFile": "../docker-compose.yml",
+  "service": "devcontainer",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
+      "moby": false
+    }
+  },
+  "workspaceFolder": "/workspace",
+  "initializeCommand": [
+    "bash",
+    ".devcontainer/scripts/devcontainer_initialize.sh"
+  ],
+  "postCreateCommand": [
+    "bash",
+    ".devcontainer/scripts/devcontainer_post_create.sh"
+  ],
+  "forwardPorts": [
+    "homeassistant:8123",
+    "homeassistant:5678"
+  ],
+  "portsAttributes": {
+    "homeassistant:8123": {
+      "label": "Home Assistant",
+      "onAutoForward": "silent"
+    },
+    "homeassistant:5678": {
+      "label": "Home Assistant debugpy",
+      "onAutoForward": "silent"
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-python.black-formatter",
+        "charliermarsh.ruff",
+        "streetsidesoftware.code-spell-checker",
+        "redhat.vscode-yaml",
+        "keesschollaart.vscode-home-assistant",
+        "ms-azuretools.vscode-docker"
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "/usr/local/bin/python",
+        "editor.formatOnSave": true,
+        "vscode-home-assistant.hostUrl": "http://homeassistant:8123"
+      }
+    }
+  }
+}

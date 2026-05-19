@@ -1,0 +1,20 @@
+{
+  "files.trimTrailingWhitespace": true,
+  "files.insertFinalNewline": true,
+  "python.testing.pytestArgs": [
+    "--no-cov",
+    "-p",
+    "no:sugar",
+    "tests"
+  ],
+  "python.testing.pytestEnabled": true,
+  "[python]": {
+    "editor.defaultFormatter": "ms-python.black-formatter"
+  },
+  "python-envs.defaultEnvManager": "ms-python.python:system",
+  "cSpell.words": [
+    "hass",
+    "LOOKBACK",
+    "nxwitness"
+  ]
+}

@@ -1,0 +1,12 @@
+services:
+  homeassistant:
+    image: ghcr.io/home-assistant/home-assistant:stable
+    restart: unless-stopped
+    ports:
+      - "8123:8123"
+    environment:
+      TZ: UTC
+    volumes:
+      - ./config:/config
+      - ../custom_components/nxwitness:/config/custom_components/nxwitness:ro
+      - ../www/nxwitness-camera-card:/config/www/nxwitness-camera-card:ro

@@ -1,0 +1,43 @@
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["tests"]
+norecursedirs = [".git", "local-testing"]
+addopts = "-p no:sugar -m \"not e2e\" --cov=custom_components.nxwitness --cov-report=term-missing --cov-fail-under=95"
+markers = [
+  "e2e: end-to-end tests against a live NX Witness server (run via scripts/e2e, never in the default suite)",
+]
+
+[tool.coverage.run]
+source = ["custom_components/nxwitness"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+fail_under = 95
+exclude_also = [
+  "if TYPE_CHECKING:",
+  "raise NotImplementedError",
+  "@(abc\\.)?abstractmethod",
+]
+
+[tool.black]
+target-version = ["py312"]
+
+[tool.ruff]
+target-version = "py312"
+exclude = ["local-testing"]
+
+[tool.ruff.lint]
+select = ["B", "E", "F", "I", "UP"]
+
+[tool.mypy]
+python_version = "3.13"
+ignore_missing_imports = true
+follow_imports = "silent"
+warn_incomplete_stub = true
+warn_redundant_casts = true
+warn_unused_configs = true
+warn_unused_ignores = true
+show_error_codes = true
+exclude = ["local-testing"]

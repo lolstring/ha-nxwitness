@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# Format + autofix lint (integration_blueprint style).
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+python3 -m black --line-length 88 custom_components tests scripts
+python3 -m ruff check --fix custom_components tests scripts

@@ -1,0 +1,39 @@
+name: ha-nxwitness
+
+services:
+  devcontainer:
+    build:
+      context: .
+      dockerfile: .devcontainer/Dockerfile
+    command: sleep infinity
+    init: true
+    env_file:
+      - .env
+    volumes:
+      - /var/run/docker.sock:/var/run/docker-host.sock
+      - type: bind
+        source: ${LOCAL_WORKSPACE_FOLDER}
+        target: /workspace
+        consistency: cached
+    working_dir: /workspace
+
+  homeassistant:
+    image: ghcr.io/home-assistant/home-assistant:${HA_VERSION:-stable}
+    restart: unless-stopped
+    ports:
+      - "8123:8123"
+      - "5678:5678"
+    environment:
+      TZ: UTC
+    volumes:
+      - type: bind
+        source: ${LOCAL_WORKSPACE_FOLDER}/local-testing/config
+        target: /config
+      - type: bind
+        source: ${LOCAL_WORKSPACE_FOLDER}/custom_components/nxwitness
+        target: /config/custom_components/nxwitness
+        read_only: true
+      - type: bind
+        source: ${LOCAL_WORKSPACE_FOLDER}/www/nxwitness-camera-card
+        target: /config/www/nxwitness-camera-card
+        read_only: true

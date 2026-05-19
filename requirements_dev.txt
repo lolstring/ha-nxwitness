@@ -1,0 +1,11 @@
+-r requirements.txt
+black
+mypy
+pre-commit
+pytest
+pytest-asyncio
+pytest-cov
+pytest-homeassistant-custom-component==0.13.205; python_version >= "3.12" and python_version < "3.13"
+pytest-homeassistant-custom-component==0.13.316; python_version >= "3.13" and python_version < "3.14"
+ruff
+tzdata

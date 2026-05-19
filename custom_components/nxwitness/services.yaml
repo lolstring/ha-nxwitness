@@ -1,0 +1,48 @@
+get_stored_files:
+  name: Get stored files
+  description: Read stored files from the NX Witness server without modifying anything.
+  fields:
+    config_entry_id:
+      required: false
+      selector:
+        text:
+    path:
+      required: false
+      selector:
+        text:
+
+get_layouts:
+  name: Get layouts
+  description: Return read-only layout metadata from the NX Witness server.
+  fields:
+    config_entry_id:
+      required: false
+      selector:
+        text:
+    include_layout_items:
+      required: false
+      default: true
+      selector:
+        boolean:
+
+get_video_walls:
+  name: Get video walls
+  description: Return read-only video wall metadata from the NX Witness server.
+  fields:
+    config_entry_id:
+      required: false
+      selector:
+        text:
+
+get_video_wall_render_plan:
+  name: Get video wall render plan
+  description: Expand a video wall into layouts and tiles so a Lovelace card can render it.
+  fields:
+    config_entry_id:
+      required: false
+      selector:
+        text:
+    video_wall_id:
+      required: true
+      selector:
+        text:

@@ -1,0 +1,126 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to NX Witness",
+        "description": "Create a read-only NX Witness connection. {read_only_note}",
+        "data": {
+          "host": "Host",
+          "port": "Port",
+          "use_https": "Use HTTPS",
+          "verify_ssl": "Verify SSL certificate",
+          "auth_mode": "Authentication mode",
+          "username": "Username",
+          "password": "Password",
+          "motion_window_seconds": "Recent motion window in seconds"
+        },
+        "data_description": {
+          "host": "Hostname or IP address of the NX Witness server.",
+          "port": "Port the NX Witness server listens on (default 7001).",
+          "use_https": "Connect to the server over HTTPS.",
+          "verify_ssl": "Validate the server's TLS certificate. Disable for self-signed certificates.",
+          "auth_mode": "Basic auth is read-only and preferred; session tokens create a login session on the server.",
+          "username": "NX Witness account username. A read-only account is recommended.",
+          "password": "Password for the NX Witness account.",
+          "motion_window_seconds": "How far back to look when deciding whether motion is currently active."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to NX Witness",
+      "invalid_auth": "Authentication failed"
+    },
+    "abort": {
+      "already_configured": "This NX Witness server is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "NX Witness options",
+        "data": {
+          "enable_cameras": "Enable camera entities",
+          "enable_motion": "Enable motion entities",
+          "enable_clips": "Enable clip browser",
+          "enabled_camera_ids": "Enabled cameras",
+          "motion_window_seconds": "Motion window",
+          "motion_period_type": "Motion detection source",
+          "scan_interval_seconds": "Scan interval",
+          "default_stream": "Default stream",
+          "default_stream_format": "Live stream format",
+          "default_stream_resolution": "Live stream resolution",
+          "clip_format": "Clip format",
+          "clip_fps": "Clip FPS"
+        },
+        "data_description": {
+          "enable_cameras": "Create camera entities for the selected cameras.",
+          "enable_motion": "Create motion binary sensors for the selected cameras.",
+          "enable_clips": "Expose recent motion clips in the Home Assistant media browser.",
+          "enabled_camera_ids": "Select which cameras the integration should expose.",
+          "motion_window_seconds": "How far back to look when deciding whether motion is active.",
+          "motion_period_type": "Choose 'Motion' for server-side motion detection, or 'Recording' if your cameras use in-camera / analytics-based detection.",
+          "scan_interval_seconds": "How often to refresh device, layout, and wall data.",
+          "default_stream": "NX Witness stream profile to use by default.",
+          "default_stream_format": "Format used for live stream proxy requests.",
+          "default_stream_resolution": "Resolution used for live streams and snapshots.",
+          "clip_format": "Format used for media browser clips.",
+          "clip_fps": "Frame rate requested for media browser clips."
+        }
+      }
+    }
+  },
+  "services": {
+    "get_stored_files": {
+      "name": "Get stored files",
+      "description": "Read stored files from the NX Witness server without modifying anything.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Config entry",
+          "description": "Target NX Witness config entry. Required when multiple entries exist."
+        },
+        "path": {
+          "name": "Path",
+          "description": "Optional stored-files subpath to list."
+        }
+      }
+    },
+    "get_layouts": {
+      "name": "Get layouts",
+      "description": "Return read-only layout metadata from the NX Witness server.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Config entry",
+          "description": "Target NX Witness config entry. Required when multiple entries exist."
+        },
+        "include_layout_items": {
+          "name": "Include layout items",
+          "description": "Include the per-layout item list in the response."
+        }
+      }
+    },
+    "get_video_walls": {
+      "name": "Get video walls",
+      "description": "Return read-only video wall metadata from the NX Witness server.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Config entry",
+          "description": "Target NX Witness config entry. Required when multiple entries exist."
+        }
+      }
+    },
+    "get_video_wall_render_plan": {
+      "name": "Get video wall render plan",
+      "description": "Expand a video wall into layouts and tiles so a Lovelace card can render it.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Config entry",
+          "description": "Target NX Witness config entry."
+        },
+        "video_wall_id": {
+          "name": "Video wall ID",
+          "description": "Identifier of the video wall to expand."
+        }
+      }
+    }
+  }
+}
