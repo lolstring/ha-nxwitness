@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import re
 from dataclasses import dataclass
 from typing import Any, NoReturn
@@ -17,6 +18,8 @@ from aiohttp import (
 )
 
 from .const import AUTH_MODE_BASIC, AUTH_MODE_SESSION
+
+LOGGER = logging.getLogger(__package__)
 
 _UUID_BRACES_RE = re.compile(
     r"^\{[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\}$",
@@ -523,6 +526,24 @@ class NxWitnessApiClient:
                     else None
                 ),
             )
+            if response.status >= 400:
+                body = ""
+                try:
+                    body = (await response.text())[:500]
+                except Exception:  # body read is best-effort diagnostics
+                    pass
+                LOGGER.debug(
+                    "NX %s %s params=%s -> HTTP %s [auth_mode=%s, "
+                    "token=%s, www-authenticate=%r] body=%r",
+                    method,
+                    path,
+                    params,
+                    response.status,
+                    self._config.auth_mode,
+                    "set" if self._token else "none",
+                    response.headers.get("WWW-Authenticate"),
+                    body,
+                )
             response.raise_for_status()
             return response
         except ClientResponseError as err:
