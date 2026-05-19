@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from typing import Any
 
 import pytest
@@ -40,6 +41,13 @@ class FakeResponse:
 
     async def json(self) -> Any:
         return self._payload
+
+    async def text(self) -> str:
+        if self._payload is not None:
+            return json.dumps(self._payload)
+        return self._body.decode() if isinstance(self._body, bytes) else str(
+            self._body
+        )
 
     async def read(self) -> bytes:
         return self._body
@@ -213,10 +221,28 @@ def test_authorized_media_url_modes() -> None:
 
 
 async def test_error_mapping() -> None:
-    """401/403 map to auth errors, others to API errors."""
+    """Only 401 is an auth error; 403 and others are API errors.
+
+    NX returns 403 for non-auth reasons (e.g. "Too many opened
+    connections"), so it must not be treated as an auth failure.
+    """
     auth_client = _client([("/rest/v3/devices", FakeResponse(401))])
     with pytest.raises(NxWitnessAuthError):
         await auth_client.async_get_devices()
+
+    forbidden_client = _client(
+        [(
+            "/rest/v3/devices",
+            FakeResponse(
+                403,
+                {"errorId": "forbidden", "errorString": "Too many opened connections."},
+            ),
+        )]
+    )
+    with pytest.raises(NxWitnessApiError) as forbidden:
+        await forbidden_client.async_get_devices()
+    assert not isinstance(forbidden.value, NxWitnessAuthError)
+    assert "Too many opened connections" in str(forbidden.value)
 
     api_client = _client([("/rest/v3/devices", FakeResponse(503))])
     with pytest.raises(NxWitnessApiError):

@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
+import json
 import logging
 import re
 from dataclasses import dataclass
@@ -526,35 +528,43 @@ class NxWitnessApiClient:
                     else None
                 ),
             )
-            if response.status >= 400:
-                body = ""
-                try:
-                    body = (await response.text())[:500]
-                except Exception:  # body read is best-effort diagnostics
-                    pass
-                LOGGER.debug(
-                    "NX %s %s params=%s -> HTTP %s [auth_mode=%s, "
-                    "token=%s, www-authenticate=%r] body=%r",
-                    method,
-                    path,
-                    params,
-                    response.status,
-                    self._config.auth_mode,
-                    "set" if self._token else "none",
-                    response.headers.get("WWW-Authenticate"),
-                    body,
-                )
-            response.raise_for_status()
-            return response
-        except ClientResponseError as err:
+            if response.status < 400:
+                return response
+
+            status = response.status
+            www_auth = response.headers.get("WWW-Authenticate")
+            body = ""
+            with contextlib.suppress(Exception):
+                body = (await response.text())[:500]
+            response.close()
+
+            nx_message = body
+            with contextlib.suppress(Exception):
+                nx_message = json.loads(body).get("errorString") or body
+            detail = f"HTTP {status}: {nx_message or 'no detail'}"
+
+            LOGGER.debug(
+                "NX %s %s params=%s -> HTTP %s [auth_mode=%s, token=%s, "
+                "www-authenticate=%r] body=%r",
+                method,
+                path,
+                params,
+                status,
+                self._config.auth_mode,
+                "set" if self._token else "none",
+                www_auth,
+                body,
+            )
+
+            # Only 401 is an auth problem. NX uses 403 for non-auth reasons
+            # too (e.g. "Too many opened connections") — treating those as
+            # auth wrongly re-mints a token (a new NX session/connection,
+            # making a connection-limit error worse) and hides the cause.
             if (
-                err.status in {401, 403}
+                status == 401
                 and _retry_auth
                 and self._config.auth_mode == AUTH_MODE_SESSION
             ):
-                # Cached session token was rejected before our local expiry
-                # estimate (NX restart, session eviction, or clock skew).
-                # Re-mint once (unless another request already did) and retry.
                 await self._ensure_session_token(rejected_token=used_token)
                 return await self._request(
                     method,
@@ -563,7 +573,9 @@ class NxWitnessApiClient:
                     accept=accept,
                     _retry_auth=False,
                 )
-            _raise_api_error(err)
+            if status == 401:
+                raise NxWitnessAuthError(detail)
+            raise NxWitnessApiError(detail)
         except (TimeoutError, ClientError) as err:
             raise NxWitnessApiError(str(err) or err.__class__.__name__) from err
 
