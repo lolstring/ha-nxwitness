@@ -5,7 +5,6 @@ from __future__ import annotations
 import asyncio
 import re
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
 from typing import Any, NoReturn
 from urllib.parse import urlencode
 
@@ -108,7 +107,6 @@ class NxWitnessApiClient:
         self._session = session
         self._config = config
         self._token: str | None = None
-        self._token_expires_at: datetime | None = None
         self._token_lock = asyncio.Lock()
 
     @property
@@ -412,30 +410,46 @@ class NxWitnessApiClient:
             return media_url.replace("://", f"://{prefix}", 1)
         return media_url
 
-    async def _ensure_session_token(self, *, rejected_token: str | None = None) -> None:
-        """Ensure a valid session token, serialised across concurrent requests.
+    async def _delete_session(self, token: str) -> None:
+        """Best-effort close of an NX session so we don't leak server sessions.
 
-        Without ``rejected_token`` this is a normal "log in if missing or
-        locally expired" call. With it, it is the recovery path after a 401:
-        only re-mint when the current token is still the one that was
-        rejected — if another concurrent request already refreshed it, reuse
-        that. The lock + double-check stops N concurrent requests (e.g. one
-        per dashboard card) all firing logins and exhausting NX's per-user
-        session cap.
+        NX caps sessions per user; abandoning tokens without deleting them
+        eventually exhausts that cap and NX rejects everything. Cleanup must
+        never raise (it runs during re-mint and unload).
+        """
+        try:
+            async with self._session.request(
+                "DELETE",
+                f"{self.base_url}/rest/v3/login/sessions/{token}",
+                ssl=self._config.verify_ssl,
+            ):
+                pass
+        except Exception:  # cleanup is best-effort; never block on it
+            pass
+
+    async def _ensure_session_token(self, *, rejected_token: str | None = None) -> None:
+        """Mint a session token once and reuse it; refresh only on rejection.
+
+        The token is kept for the life of the client and reused for every
+        request. We do NOT proactively re-mint on a guessed expiry — that
+        churned new NX sessions every few minutes and, since each mint
+        creates a server-side session, exhausted NX's per-user session cap.
+        A new token is minted only when there is none yet, or when NX
+        actually rejected the current one (``rejected_token``). The lock
+        makes that single-flight so concurrent requests (one per dashboard
+        card) cannot stampede logins.
         """
         if self._config.auth_mode != AUTH_MODE_SESSION:
             return
 
         async with self._token_lock:
-            now = datetime.now(UTC)
             if rejected_token is not None:
                 if self._token != rejected_token:
                     return
-            elif self._token and self._token_expires_at and (
-                self._token_expires_at > now
-            ):
+            elif self._token is not None:
                 return
 
+            old_token = self._token
             try:
                 async with self._session.post(
                     f"{self.base_url}/rest/v3/login/sessions",
@@ -455,10 +469,16 @@ class NxWitnessApiClient:
                 ) from err
 
             self._token = payload.get("token")
-            expires_in = payload.get("expiresInS", 300)
-            self._token_expires_at = now + timedelta(
-                seconds=max(int(expires_in) - 30, 30)
-            )
+
+        if old_token:
+            await self._delete_session(old_token)
+
+    async def async_close(self) -> None:
+        """Release the NX session on unload so it is not leaked server-side."""
+        token = self._token
+        self._token = None
+        if token and self._config.auth_mode == AUTH_MODE_SESSION:
+            await self._delete_session(token)
 
     async def _request_json(
         self, method: str, path: str, *, params: dict[str, Any] | None = None
