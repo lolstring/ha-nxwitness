@@ -3,6 +3,7 @@
   "name": "NX Witness",
   "codeowners": ["@lolstring"],
   "config_flow": true,
+  "dependencies": ["http"],
   "documentation": "https://github.com/lolstring/ha-nxwitness",
   "integration_type": "service",
   "iot_class": "local_polling",
