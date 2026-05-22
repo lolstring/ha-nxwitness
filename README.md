@@ -229,6 +229,10 @@ action:
       timestamp: "{{ now().isoformat() }}"
 ```
 
+## Google Home
+
+Cameras only sync to Google Home (via Home Assistant's Google Assistant integration) when the config entry uses **Basic** auth.
+
 ## Services
 
 All services are read-only and return a response. They do not change anything on the NX Witness server. If you have more than one NX Witness entry configured, pass `config_entry_id` to pick a specific server.

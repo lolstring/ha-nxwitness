@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from homeassistant.components.camera import Camera
+from homeassistant.components.camera import Camera, CameraEntityFeature
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_NAME
 from homeassistant.core import HomeAssistant
@@ -63,6 +63,11 @@ class NxWitnessCameraEntity(CoordinatorEntity, Camera):
         self._device_id = device["id"]
         self._attr_unique_id = device["id"]
         self._attr_name = device.get(CONF_NAME) or device.get("name") or self._device_id
+        # Advertise STREAM only when stream_source() can actually return a URL.
+        # Without this flag, Google Assistant's CameraStreamTrait skips the
+        # entity at SYNC time, so cameras never appear in Google Home.
+        if client.auth_mode == AUTH_MODE_BASIC:
+            self._attr_supported_features = CameraEntityFeature.STREAM
 
     @property
     def is_on(self) -> bool:
