@@ -340,5 +340,7 @@ class NxWitnessSignView(NxWitnessBaseView):
         path = request.query.get("path", "")
         if not _SIGNABLE_PATH_RE.match(path):
             raise web.HTTPBadRequest(reason="path is not a signable NX Witness route")
-        signed = async_sign_path(self.hass, path, timedelta(minutes=5))
+        # Streams are one long-lived GET the browser re-requests on stalls;
+        # a short lifetime expires mid-session and HA 401s the re-request.
+        signed = async_sign_path(self.hass, path, timedelta(hours=12))
         return self.json({"path": signed})

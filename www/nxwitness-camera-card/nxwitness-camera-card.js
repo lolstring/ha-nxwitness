@@ -190,6 +190,14 @@ class NxWitnessCameraCard extends HTMLElement {
           background: #05070b;
           cursor: default;
         }
+        /* snapshot fallback: overlays the video (kept alive underneath) */
+        .nx-c-snap-fallback {
+          position: absolute; inset: 0;
+          width: 100%; height: 100%;
+          object-fit: cover; background: #05070b;
+          display: none; z-index: 1;
+        }
+        .nx-c-snap-fallback.nx-show { display: block; }
         /* always-visible overlays */
         .nx-c-badge {
           position: absolute; top: 10px; left: 10px;
@@ -208,6 +216,8 @@ class NxWitnessCameraCard extends HTMLElement {
           animation: nx-blink 1.4s infinite;
         }
         .nx-c-badge.nx-archive::before { animation: none; opacity: .65; }
+        .nx-c-badge.nx-snapshot { background: rgba(90,98,110,.92); }
+        .nx-c-badge.nx-snapshot::before { animation: none; opacity: .55; }
         @keyframes nx-blink { 50% { opacity: .25; } }
         .nx-c-ts {
           position: absolute; top: 10px; right: 10px;
@@ -394,6 +404,7 @@ class NxWitnessCameraCard extends HTMLElement {
     this._bodyEl.innerHTML = `
       <div class="nx-cinematic-body" id="nx-cinematic">
         <video class="nx-c-video" autoplay muted playsinline></video>
+        <img class="nx-c-snap-fallback" id="nx-c-snap-fallback" alt="">
         <div class="nx-c-badge" id="nx-c-badge">LIVE</div>
         ${cfg.show_timestamp !== false ? `<div class="nx-c-ts" id="nx-c-ts"></div>` : ""}
         ${cfg.show_name !== false ? `<div class="nx-c-label" id="nx-c-label">${esc(cfg.title)}</div>` : ""}
@@ -444,6 +455,7 @@ class NxWitnessCameraCard extends HTMLElement {
 
     const body    = this._root.getElementById("nx-cinematic");
     const video   = body.querySelector(".nx-c-video");
+    const snapImg = body.querySelector("#nx-c-snap-fallback");
     const badge   = body.querySelector("#nx-c-badge");
     const tsEl    = body.querySelector("#nx-c-ts");
     const playBtn = body.querySelector("#nx-c-play");
@@ -466,6 +478,19 @@ class NxWitnessCameraCard extends HTMLElement {
     let isLive       = true;
     let positionMs   = null;   // null = live
     let liveStartWall = Date.now(); // wall-clock ms when live stream began
+    let isSnapshot   = false;  // showing the static snapshot fallback
+    let snapshotAtMs = 0;      // wall-clock ms the fallback snapshot was taken
+
+    // Reconnect/fallback state. A live stream is a single long-lived GET; the
+    // signed URL is only checked at connection open. On a drop (network blip,
+    // tab resume, NX hiccup, or an expired signature) re-sign and reopen rather
+    // than failing — only fall back to a static snapshot after exhausting
+    // retries. Declared above loadLive so loadLive/seekTo can read them.
+    const MAX_RECONNECTS = 4;
+    let reconnectAttempts = 0;
+    let reconnectTimer = null;
+    let stableTimer = null;
+    let gaveUp = false;
 
     if (qualBtn) {
       qualBtn.classList.toggle("nx-active", activeStream === "secondary");
@@ -498,7 +523,9 @@ class NxWitnessCameraCard extends HTMLElement {
 
     const updateTs = () => {
       if (!tsEl) return;
-      if (isLive) {
+      if (isSnapshot) {
+        tsEl.textContent = _nxFmtDateTime(snapshotAtMs);
+      } else if (isLive) {
         // Sync to actual decoded video position to avoid wall-clock desync
         const videoMs = video.readyState >= 2 && video.currentTime > 0
           ? liveStartWall + video.currentTime * 1000
@@ -526,6 +553,41 @@ class NxWitnessCameraCard extends HTMLElement {
       clearTimeout(idleTimer);
       if (!document.fullscreenElement) body.classList.remove("show-controls");
     });
+
+    // Static snapshot fallback. Rather than detaching the <video> (which would
+    // strip its error/playing listeners and orphan the seek target, so the
+    // scrubber could no longer load archive), overlay a still image on top and
+    // keep the element live. A user action clears it via resetRecovery and
+    // reopens a real stream.
+    const showSnapshotFallback = async () => {
+      try { video.pause(); } catch (_) {}
+      isSnapshot = true;
+      snapshotAtMs = Date.now();
+      badge.className = "nx-c-badge nx-snapshot";
+      badge.textContent = "SNAPSHOT";
+      liveBtn?.classList.remove("nx-seeking");
+      tlMid.textContent = "stream unavailable — snapshot only";
+      updateTs();
+      const imgPath = await this._signPath(buildImagePath(-1));
+      snapImg.src = imgPath;
+      snapImg.classList.add("nx-show");
+    };
+
+    const hideSnapshotFallback = () => {
+      isSnapshot = false;
+      snapImg.classList.remove("nx-show");
+    };
+
+    // A user action gets a fresh retry budget and drops the snapshot overlay
+    // before a real stream reopens. Not called from the automatic reconnect
+    // path, so the MAX_RECONNECTS cap there still trips.
+    const resetRecovery = () => {
+      gaveUp = false;
+      reconnectAttempts = 0;
+      clearTimeout(reconnectTimer);
+      reconnectTimer = null;
+      hideSnapshotFallback();
+    };
 
     const loadLive = async () => {
       const path = await this._signPath(buildLivePath());
@@ -572,7 +634,7 @@ class NxWitnessCameraCard extends HTMLElement {
       }
     });
 
-    liveBtn?.addEventListener("click", loadLive);
+    liveBtn?.addEventListener("click", () => { resetRecovery(); loadLive(); });
 
     snapBtn?.addEventListener("click", async () => {
       const tsMs = isLive ? -1 : (positionMs ?? -1);
@@ -594,6 +656,7 @@ class NxWitnessCameraCard extends HTMLElement {
       activeStream = activeStream === "primary" ? "secondary" : "primary";
       qualBtn.classList.toggle("nx-active", activeStream === "secondary");
       qualBtn.dataset.tip = activeStream === "secondary" ? "Switch to Primary stream" : "Switch to Secondary stream";
+      resetRecovery();
       if (isLive) {
         await loadLive();
       } else if (positionMs !== null) {
@@ -613,16 +676,6 @@ class NxWitnessCameraCard extends HTMLElement {
       }
     });
 
-    // A live stream is a single long-lived GET; the signed URL is only
-    // checked at connection open. On a drop (network blip, tab resume, NX
-    // hiccup, or an expired signature) re-sign and reopen rather than
-    // failing \u2014 only fall back to a static snapshot after exhausting retries.
-    const MAX_RECONNECTS = 4;
-    let reconnectAttempts = 0;
-    let reconnectTimer = null;
-    let stableTimer = null;
-    let gaveUp = false;
-
     // Only credit the retry budget back once playback has been stable for a
     // while. A flapping stream (playing -> error within seconds) must NOT
     // reset the counter, or the MAX cap never trips and we 502-loop forever.
@@ -638,15 +691,7 @@ class NxWitnessCameraCard extends HTMLElement {
       if (gaveUp || reconnectTimer) return;
       if (reconnectAttempts >= MAX_RECONNECTS) {
         gaveUp = true;
-        this._signPath(buildImagePath(-1)).then((imgPath) => {
-          const img = Object.assign(document.createElement("img"), {
-            className: "nx-c-video",
-            src: imgPath,
-            alt: cfg.title,
-          });
-          video.replaceWith(img);
-          tlMid.textContent = "stream unavailable \u2014 snapshot only";
-        });
+        showSnapshotFallback();
         return;
       }
       reconnectAttempts += 1;
@@ -718,34 +763,33 @@ class NxWitnessCameraCard extends HTMLElement {
       }
     };
 
-    track.addEventListener("click", async (e) => {
-      if (!tlStartMs || !tlEndMs) return;
-      if (isDragging) return;
-      const rect = track.getBoundingClientRect();
-      const pct  = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-      const ms   = Math.round(tlStartMs + pct * (tlEndMs - tlStartMs));
-      await seekTo(ms);
-    });
-
+    // Seek on mouseup, not on a synthetic `click`. Inside HA's nested shadow
+    // DOM the playhead moving under the cursor retargets the click off the
+    // track, so a plain (non-drag) click never reaches a track click handler.
     let isDragging = false;
-    let dragMs     = null;
+
+    const msFromClientX = (clientX) => {
+      const rect = track.getBoundingClientRect();
+      const pct  = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+      return { pct, ms: Math.round(tlStartMs + pct * (tlEndMs - tlStartMs)) };
+    };
 
     const onTrackMousedown = (e) => {
-      if (e.button !== 0) return;
+      if (e.button !== 0 || !tlStartMs || !tlEndMs) return;
       isDragging = true;
-      dragMs = null;
       head.style.transition = "none";
       body.style.cursor = "ew-resize";
+      const { pct, ms } = msFromClientX(e.clientX);
+      head.style.left    = `${pct * 100}%`;
+      bubble.textContent = _nxFmtTime(ms);
       e.preventDefault();
     };
 
     const onDocMousemove = (e) => {
       if (!isDragging || !tlStartMs || !tlEndMs) return;
-      const rect = track.getBoundingClientRect();
-      const pct  = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-      dragMs = Math.round(tlStartMs + pct * (tlEndMs - tlStartMs));
+      const { pct, ms } = msFromClientX(e.clientX);
       head.style.left    = `${pct * 100}%`;
-      bubble.textContent = _nxFmtTime(dragMs);
+      bubble.textContent = _nxFmtTime(ms);
     };
 
     const onDocMouseup = async (e) => {
@@ -753,10 +797,10 @@ class NxWitnessCameraCard extends HTMLElement {
       isDragging = false;
       head.style.transition = "";
       body.style.cursor = "";
-      if (dragMs !== null && tlStartMs && tlEndMs) {
-        await seekTo(dragMs);
-      }
-      dragMs = null;
+      if (!tlStartMs || !tlEndMs) return;
+      const { ms } = msFromClientX(e.clientX);
+      resetRecovery();
+      await seekTo(ms);
     };
 
     track.addEventListener("mousedown", onTrackMousedown);
@@ -836,8 +880,12 @@ class NxWitnessCameraCard extends HTMLElement {
   }
 
   async _signPath(path) {
+    // A live <video> stream is one long-lived GET that the browser silently
+    // re-requests on any stall/seek. A short signature expires mid-stream and
+    // HA then 401s the re-request, so the lifetime must outlast a viewing
+    // session, not a single request.
     try {
-      const result = await this._hass.callWS({ type: "auth/sign_path", path, expires: 300 });
+      const result = await this._hass.callWS({ type: "auth/sign_path", path, expires: 43200 });
       if (result?.path) return result.path;
     } catch (e) {
       console.warn("[nxwitness-camera-card] WS auth/sign_path failed, trying REST fallback:", e);
